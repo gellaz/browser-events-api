@@ -7,6 +7,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.ZonedDateTime;
+import java.util.Date;
 
 @Data
 @NoArgsConstructor
@@ -18,9 +19,9 @@ public class Event {
     @ApiModelProperty(notes = "The type of the event", required = true)
     private String type;
     @ApiModelProperty(notes = "The timestamp of the event")
-    private ZonedDateTime timestamp;
+    private Date timestamp;
 
-    public Event(String type, ZonedDateTime timestamp) {
+    public Event(String type, Date timestamp) {
         this.type = type;
         this.timestamp = timestamp;
     }

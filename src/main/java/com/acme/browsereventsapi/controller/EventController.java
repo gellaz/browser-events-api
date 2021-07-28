@@ -6,6 +6,11 @@ import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.repository.query.Param;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,7 +20,7 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/events")
 public class EventController {
     private final EventRepository eventRepository;
 
@@ -29,7 +34,7 @@ public class EventController {
      *
      * @return the list of all the events
      */
-    @GetMapping("/events")
+    @GetMapping("/")
     @ApiOperation(value = "getAllEvents", notes = "Get all the events saved on the database", response = List.class)
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "All the events successfully retrieved"),
@@ -52,12 +57,40 @@ public class EventController {
     }
 
     /**
+     * Get all the events saved on the database in a paginated result set
+     *
+     * @param page page number
+     * @param size page size
+     * @return
+     */
+    @GetMapping("/paging")
+    @ApiOperation(value = "getAllEventsWithPaging", notes = "Get all the events saved on the database in a paginated result set", response = Page.class)
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "All the paginated events successfully retrieved"),
+            @ApiResponse(code = 204, message = "There is no event"),
+            @ApiResponse(code = 500, message = "Error retrieving all the paginated events"),
+    })
+    public ResponseEntity<Page<Event>> getAllEventsWithPaging(@Param(value = "page") int page, @Param(value = "size") int size) {
+        try {
+            Pageable requestedPage = PageRequest.of(page, size);
+            Page<Event> events = eventRepository.findAll(requestedPage);
+
+            if (events.isEmpty())
+                return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+
+            return new ResponseEntity<>(events, HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
      * Get the event with the given id saved on the database, if present
      *
      * @param id of the event you are querying for
      * @return the event with the given id, if present
      */
-    @GetMapping("/events/{id}")
+    @GetMapping("/{id}")
     @ApiOperation(value = "getEventById", notes = "Get the event with the given id saved on the database, if present", response = Event.class)
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "Event with the given ID successfully retrieved"),
@@ -78,7 +111,7 @@ public class EventController {
      * @param type of events you are querying for
      * @return the events with the given type saved on the database, if any
      */
-    @GetMapping("/events/{type}")
+    @GetMapping("/{type}")
     @ApiOperation(value = "getEventsByType", notes = "Get all the events with the given type saved on the database, if any", response = List.class)
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "Events with the given type successfully retrieved"),
@@ -87,7 +120,7 @@ public class EventController {
     })
     public ResponseEntity<List<Event>> getEventsByType(@PathVariable("type") String type) {
         try {
-            List<Event> events = eventRepository.findEventByType(type);
+            List<Event> events = eventRepository.findAllByType(type).toList();
 
             if (events.isEmpty())
                 return new ResponseEntity<>(HttpStatus.NO_CONTENT);
@@ -98,13 +131,36 @@ public class EventController {
         }
     }
 
+    @GetMapping("/paging/byType")
+    @ApiOperation(value = "getEventsByTypeWithPaging", notes = "Get all the events with the given type saved on the database in a paginated result set, if any", response = Page.class)
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "Paginated events with the given type successfully retrieved"),
+            @ApiResponse(code = 204, message = "There are no events of the given type"),
+            @ApiResponse(code = 500, message = "Error retrieving the paginated events with the given type"),
+    })
+    public ResponseEntity<Slice<Event>> getEventsByTypeWithPaging(
+            @RequestParam(name = "type", required = true) String type,
+            @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "size", defaultValue = "3") int size) {
+        try {
+            Pageable requestedPage = PageRequest.of(page, size);
+            Slice<Event> events = eventRepository.findAllByType(type, requestedPage);
+            if (events.isEmpty())
+                return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+
+            return new ResponseEntity<>(events, HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
     /**
      * Creates a new event and saves it to the database
      *
      * @param event to create
      * @return the event saved on the database
      */
-    @PostMapping("/events")
+    @PostMapping("/")
     @ApiOperation(value = "createEvent", notes = "Creates a new event and saves it to the database", response = Event.class)
     @ApiResponses(value = {
             @ApiResponse(code = 201, message = "Event successfully created"),
@@ -127,7 +183,7 @@ public class EventController {
      * @param event to update
      * @return the updated event
      */
-    @PutMapping("/events/{id}")
+    @PutMapping("/{id}")
     @ApiOperation(value = "updateEvent", notes = "Updates the event with the id passed as input to the database, if it exists", response = Event.class)
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "Event with the given ID successfully updated"),
@@ -152,7 +208,7 @@ public class EventController {
      * @param id of the event
      * @return HTTP response with status NO_CONTENT (204) if the element is successfully deleted or INTERNAL_SERVER_ERROR (500)
      */
-    @DeleteMapping("/events/{id}")
+    @DeleteMapping("/{id}")
     @ApiOperation(value = "deleteEvent", notes = "Removes the event with the id passed as input from the database", response = HttpStatus.class)
     @ApiResponses(value = {
             @ApiResponse(code = 204, message = "Event with the given ID successfully removed"),
@@ -173,7 +229,7 @@ public class EventController {
      *
      * @return HTTP response with status NO_CONTENT (204) if the element is successfully deleted or INTERNAL_SERVER_ERROR (500)
      */
-    @DeleteMapping("/events")
+    @DeleteMapping("/")
     @ApiOperation(value = "deleteAllEvents", notes = "Remove all the events saved on the database", response = HttpStatus.class)
     @ApiResponses(value = {
             @ApiResponse(code = 204, message = "All events successfully removed"),
